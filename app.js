@@ -3,6 +3,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
+const encrypt = require('mongoose-encryption')
 
 const app = express();
 
@@ -10,14 +11,23 @@ app.use(express.static('public'))
 app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({extended: true}))
 
-
+// connecting to the database and creating a model.. 
 mongoose.connect('mongodb://localhost:27017/userDB');
 
 
-const userSchema = {
+
+// creating a model from the mongoose schema class which is essential for encryption. 
+const userSchema =  new mongoose.Schema({
     email: String,
     password: String
-}
+})
+
+
+//creating the database encryption key... 
+
+const secret = 'Thisisourlittlesecret';
+userSchema.plugin(encrypt, {secret: secret, encryptedFields: ['password']});
+
 
 const User = mongoose.model('user', userSchema);
 

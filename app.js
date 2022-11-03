@@ -9,7 +9,7 @@ const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
 const findOrCreate = require('mongoose-findorcreate')
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-
+const FacebookStrategy = require('passport-facebook').Strategy;
 
 const app = express();
 
@@ -39,7 +39,9 @@ mongoose.connect('mongodb://localhost:27017/userDB');
 const userSchema =  new mongoose.Schema({
     email: String,
     password: String,
-    googleId: String
+    googleId: String,
+    facebookId: String,
+    secret: String
 })
 
 userSchema.plugin(passportLocalMongoose);
@@ -95,12 +97,34 @@ passport.use(new GoogleStrategy({
   }
 ));
 
+//Creating Facebook strategy....
+passport.use(new FacebookStrategy({
+    clientID: process.env.FACEBOOK_APP_ID,
+    clientSecret: process.env.FACEBOOK_APP_SECRET,
+    callbackURL: "http://localhost:3000/auth/facebook/secrets"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    User.findOrCreate({ facebookId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
+
+
+
+
+
+
 
 
 app.get('/', function(req, res){
     res.render('home');
 })
 
+
+
+//Google login authentication routes...
 app.get('/auth/google',
         passport.authenticate('google', {scope: ['profile']}));
 
@@ -108,6 +132,19 @@ app.get('/auth/google/secrets',
         passport.authenticate('google', {failureRedirect: '/login'}), function(req, res){
             res.redirect('/secrets');
         })
+
+
+//facebook login authentication route
+app.get('/auth/facebook',
+  passport.authenticate('facebook'));
+
+app.get('/auth/facebook/secrets',
+  passport.authenticate('facebook', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/');
+  });
+
 
 
 
@@ -145,7 +182,15 @@ app.get('/register', function(req, res){
 
 app.get('/secrets', function(req,res){
     if(req.isAuthenticated()){
-        res.render('secrets');
+       User.find({'secrets': {$ne: null}}, function(err, foundUsers){
+        if(err){
+            console.log(err)
+        }else{
+            if(foundUsers){
+                res.render('secrets', {userSecrets: foundUsers})
+            }
+        }
+       })
     }else{
         res.redirect('/login')
     }
@@ -178,10 +223,29 @@ app.post('/register', function(req, res){
 
 
 app.get('/submit', function(req, res){
-    res.render('submit');
+    if(req.isAuthenticated()){
+        res.render('submit')
+    }else{
+        res.redirect('/login')
+    }
 })
 
+app.post('/submit', function(req, res){
+   const newSecret =  req.body.secret;
 
+   User.findById(req.user.id, function(err, foundUser){
+    if(err){
+        console.log(err);
+    }else{
+        if(foundUser){
+            foundUser.secret = newSecret;
+            foundUser.save(function(){
+                res.redirect('/secrets')
+            });
+        }
+    }
+   })
+})
 
 
 

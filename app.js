@@ -31,7 +31,7 @@ app.use(passport.session())
 
 
 // connecting to the database and creating a model.. 
-mongoose.connect('mongodb+srv://admin-phylbert:Test123@cluster0.uvhdaky.mongodb.net/userDB');
+mongoose.connect(process.env.URL);
 
 
 
